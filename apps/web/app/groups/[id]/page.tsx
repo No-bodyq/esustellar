@@ -67,6 +67,7 @@ export default function GroupDetailPage({ params }: { params: Promise<{ id: stri
         if (cancelled) return
         setError(err instanceof Error ? err.message : 'Failed to load group.')
       } finally {
+        console.log('fetching group id:', id)
         if (!cancelled) setLoading(false)
       }
     })()
