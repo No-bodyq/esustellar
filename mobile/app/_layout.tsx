@@ -59,6 +59,7 @@ function RootLayoutContent() {
 
     const result = await biometricService.authenticate(
       t('lock.biometricPrompt', { appName: t('common.appName') }),
+      true,
     );
 
     if (result.success) {
@@ -67,6 +68,7 @@ function RootLayoutContent() {
   }, [t]);
 
   const openPinFallback = useCallback(() => {
+    setLocked(false);
     router.push('/security/enter-pin?reason=biometric-fallback');
   }, [router]);
 
@@ -85,12 +87,14 @@ function RootLayoutContent() {
           nextState === 'active' &&
           (prev === 'background' || prev === 'inactive')
         ) {
-          setMasked(false);
           const enabled = await AsyncStorage.getItem(BIOMETRIC_LOCK_KEY);
 
           if (enabled === 'true') {
             setLocked(true);
+            setMasked(false);
             await promptBiometric();
+          } else {
+            setMasked(false);
           }
         }
       },
