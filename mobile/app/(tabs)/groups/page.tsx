@@ -1,9 +1,23 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { FlatList, RefreshControl, SafeAreaView, View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import {
+  FlatList,
+  RefreshControl,
+  SafeAreaView,
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { Badge, ErrorState, LoadingSkeleton, TextInput } from '../../../components/ui';
+import { useTranslation } from 'react-i18next';
+import {
+  Badge,
+  ErrorState,
+  LoadingSkeleton,
+  TextInput,
+} from '../../../components/ui';
 import { useDebounce } from '../../../hooks/useDebounce';
 import { formatXLM } from '../../../utils/stellar';
 
@@ -18,9 +32,18 @@ type Group = {
   userJoined: boolean;
 };
 
-type FilterKey = 'All' | 'Joined' | 'Open';
+type FilterKey = 'all' | 'joined' | 'open';
 
-const FILTERS: FilterKey[] = ['All', 'Joined', 'Open'];
+const FILTERS: FilterKey[] = ['all', 'joined', 'open'];
+
+const FILTER_LABEL_KEYS: Record<
+  FilterKey,
+  'groups.filters.all' | 'groups.filters.joined' | 'groups.filters.open'
+> = {
+  all: 'groups.filters.all',
+  joined: 'groups.filters.joined',
+  open: 'groups.filters.open',
+};
 
 const MOCK_GROUPS: Group[] = [
   {
@@ -61,7 +84,10 @@ const MOCK_GROUPS: Group[] = [
   },
 ];
 
-const STATUS_VARIANT_MAP: Record<GroupStatus, 'success' | 'warning' | 'error' | 'info' | 'neutral'> = {
+const STATUS_VARIANT_MAP: Record<
+  GroupStatus,
+  'success' | 'warning' | 'error' | 'info' | 'neutral'
+> = {
   Active: 'success',
   Open: 'info',
   Paused: 'warning',
@@ -71,9 +97,9 @@ const STATUS_VARIANT_MAP: Record<GroupStatus, 'success' | 'warning' | 'error' | 
 
 function getFilteredGroups(filter: FilterKey) {
   switch (filter) {
-    case 'Joined':
+    case 'joined':
       return MOCK_GROUPS.filter((group) => group.userJoined);
-    case 'Open':
+    case 'open':
       return MOCK_GROUPS.filter((group) => group.status === 'Open');
     default:
       return MOCK_GROUPS;
@@ -82,7 +108,8 @@ function getFilteredGroups(filter: FilterKey) {
 
 export default function GroupsPage() {
   const router = useRouter();
-  const [activeFilter, setActiveFilter] = useState<FilterKey>('All');
+  const { t } = useTranslation();
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,32 +120,32 @@ export default function GroupsPage() {
   const fetchGroups = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
-    // Simulate network delay
+
     await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    // 30% failure rate simulation
+
     if (Math.random() < 0.3) {
-      setError('Failed to fetch groups. Please check your connection and try again.');
+      setError(t('groups.errors.fetchFailed'));
       setLoading(false);
       return;
     }
-    
+
     setGroups(MOCK_GROUPS);
     setLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
-    fetchGroups();
+    void fetchGroups();
   }, [fetchGroups]);
 
   const filteredGroups = useMemo(
     () =>
       getFilteredGroups(activeFilter).filter(
-        (g) =>
-          groups.some((pg) => pg.id === g.id) &&
+        (group) =>
+          groups.some((persistedGroup) => persistedGroup.id === group.id) &&
           (debouncedSearchQuery === '' ||
-            g.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase())),
+            group.name
+              .toLowerCase()
+              .includes(debouncedSearchQuery.toLowerCase())),
       ),
     [activeFilter, groups, debouncedSearchQuery],
   );
@@ -129,34 +156,43 @@ export default function GroupsPage() {
     setRefreshing(false);
   }, [fetchGroups]);
 
-  // useCallback: stable reference prevents FlatList from re-rendering all items on parent update
-  const renderGroup = useCallback(({ item }: { item: Group }) => (
-    <Pressable
-      key={item.id}
-      onPress={() => router.push(`/groups/${item.id}`)}
-      style={styles.groupCard}
-    >
-      <View style={styles.cardHeader}>
-        <Text style={styles.groupName}>{item.name}</Text>
-        <Badge label={item.status} variant={STATUS_VARIANT_MAP[item.status]} />
-      </View>
-
-      <View style={styles.cardRow}>
-        <View>
-          <Text style={styles.cardAmount}>{formatXLM(item.contribution)}</Text>
-          <Text style={styles.cardMeta}>{item.frequency}</Text>
+  const renderGroup = useCallback(
+    ({ item }: { item: Group }) => (
+      <Pressable
+        key={item.id}
+        onPress={() => router.push(`/groups/${item.id}`)}
+        style={styles.groupCard}
+      >
+        <View style={styles.cardHeader}>
+          <Text style={styles.groupName}>{item.name}</Text>
+          <Badge
+            label={item.status}
+            variant={STATUS_VARIANT_MAP[item.status]}
+          />
         </View>
-        <Text style={styles.cardMeta}>{item.memberCount} members</Text>
-      </View>
-    </Pressable>
-  ), [router]);
+
+        <View style={styles.cardRow}>
+          <View>
+            <Text style={styles.cardAmount}>
+              {formatXLM(item.contribution)}
+            </Text>
+            <Text style={styles.cardMeta}>{item.frequency}</Text>
+          </View>
+          <Text style={styles.cardMeta}>
+            {t('groups.memberCount', { count: item.memberCount })}
+          </Text>
+        </View>
+      </Pressable>
+    ),
+    [router, t],
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Groups</Text>
+        <Text style={styles.title}>{t('groups.title')}</Text>
         <TextInput
-          placeholder="Search groups..."
+          placeholder={t('groups.searchPlaceholder')}
           value={searchQuery}
           onChangeText={setSearchQuery}
           style={styles.searchInput}
@@ -173,10 +209,19 @@ export default function GroupsPage() {
               onPress={() => setActiveFilter(filter)}
               style={[
                 styles.filterButton,
-                isActive ? styles.filterButtonActive : styles.filterButtonInactive,
+                isActive
+                  ? styles.filterButtonActive
+                  : styles.filterButtonInactive,
               ]}
             >
-              <Text style={[styles.filterLabel, isActive && styles.filterLabelActive]}>{filter}</Text>
+              <Text
+                style={[
+                  styles.filterLabel,
+                  isActive && styles.filterLabelActive,
+                ]}
+              >
+                {t(FILTER_LABEL_KEYS[filter])}
+              </Text>
               {isActive && <View style={styles.activeIndicator} />}
             </Pressable>
           );
@@ -192,7 +237,11 @@ export default function GroupsPage() {
           data={filteredGroups}
           keyExtractor={(item) => item.id}
           renderItem={renderGroup}
-          getItemLayout={(_, index) => ({ length: 110, offset: 110 * index, index })}
+          getItemLayout={(_, index) => ({
+            length: 110,
+            offset: 110 * index,
+            index,
+          })}
           removeClippedSubviews
           maxToRenderPerBatch={10}
           windowSize={5}
@@ -206,8 +255,10 @@ export default function GroupsPage() {
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>No groups to show</Text>
-              <Text style={styles.emptyMessage}>Try another filter to see matching groups.</Text>
+              <Text style={styles.emptyTitle}>{t('groups.emptyTitle')}</Text>
+              <Text style={styles.emptyMessage}>
+                {t('groups.emptyMessage')}
+              </Text>
             </View>
           }
         />
@@ -318,11 +369,10 @@ const styles = StyleSheet.create({
   cardMeta: {
     fontSize: 14,
     color: '#475569',
-    marginTop: 4,
   },
   emptyState: {
-    marginTop: 32,
     alignItems: 'center',
+    paddingVertical: 40,
   },
   emptyTitle: {
     fontSize: 18,
@@ -331,9 +381,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyMessage: {
-    fontSize: 15,
-    color: '#64748B',
+    fontSize: 14,
+    color: '#475569',
     textAlign: 'center',
-    maxWidth: 260,
   },
 });
