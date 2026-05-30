@@ -41,6 +41,7 @@ export default function TransactionHistory() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
@@ -63,10 +64,13 @@ export default function TransactionHistory() {
     } finally {
       setLoading(false);
       setLoadingMore(false);
+      setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => { loadPage(0); }, [loadPage]);
+  useEffect(() => {
+    loadPage(0);
+  }, [loadPage]);
 
   const handleRefresh = useCallback(
     () => loadPage(0, { reset: true, showFullLoader: false }),
@@ -112,9 +116,8 @@ export default function TransactionHistory() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={onRefresh}
+              onRefresh={handleRefresh}
               tintColor="#6366F1"
-              colors={['#6366F1']}
             />
           }
           onEndReached={handleLoadMore}
