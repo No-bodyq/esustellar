@@ -9,9 +9,9 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=apps/web",
+    "dev": "node api.js && npm run dev --workspace=apps/web",
     "build:shared": "npm run build --workspace=@esustellar/shared",
-    "build": "npm run build:shared && npm run build --workspace=apps/web",
+    "build": "node api.js && npm run build:shared && npm run build --workspace=apps/web",
     "test": "npm run test --workspaces --if-present"
   },
   "repository": {
